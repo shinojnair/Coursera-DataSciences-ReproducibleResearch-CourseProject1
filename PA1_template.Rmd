@@ -1,0 +1,183 @@
+---
+title: "Reproducible Research Course Project 1"
+author: "Shinoj Nair"
+date: "February 24, 2016"
+output: html_document
+---
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+
+Loading Library and Data
+
+````{r, echo=TRUE}
+library(dplyr)
+library(ggplot2)
+
+ActivityMonitorData <- read.csv("activity.csv")
+````
+
+
+
+
+What is mean total number of steps taken per day?
+
+1. Calculate the total number of steps taken per day
+
+````{r, echo=TRUE}
+## Summarize data to find the total steps taken by days
+SummActMonData <- ActivityMonitorData %>%
+                                group_by(date) %>%
+                                summarise(TotalSteps = sum(steps, na.rm = TRUE))
+````
+
+
+
+2. Make a histogram of the total number of steps taken each day
+
+````{r, echo = TRUE}
+## Plot a histogram with the frequency (Number of days) to the Total steps taken
+hist(SummActMonData$TotalSteps, breaks=seq(from=0, to=25000, by=2500), xlab = "Total Number Of Steps", main = "Frequency of Total Steps Taken\n(NA Removed)", col = "blue")
+````
+
+
+
+3. Calculate and report the mean and median of the total number of steps taken per day
+
+````{r, echo = TRUE}
+## Mean of the Total Steps removing NA
+mean(SummActMonData$TotalSteps, na.rm = TRUE)
+## Median of the Total Steps removing NA
+median(SummActMonData$TotalSteps, na.rm = TRUE)
+````
+
+Mean of Total Number of Steps per day = 9354.23
+
+Median of Total Number of Steps per day = 10395
+
+
+
+What is the average daily activity pattern?
+
+1. Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+````{r, echo=TRUE}
+## Summarize data to find the average steps taken for each five minute interval accross all days
+SummActMonData <- ActivityMonitorData %>%
+                                group_by(interval) %>%
+                                summarise(AverageSteps = mean(steps, na.rm = TRUE))
+
+## Plot a time series of 5 minute interval and average steps taken averaged across all days
+plot(SummActMonData$interval, SummActMonData$AverageSteps, type = "l", xlab = "Interval", ylab = "Average Steps", main = "Average Steps Accross All Days", col = "green")
+````
+
+
+
+2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+````{r, echo = TRUE}
+## Identify the interval with the maximum average steps
+MaxStepInterval <- SummActMonData %>% 
+                                filter (AverageSteps == max(AverageSteps)) %>%
+                                select(interval)
+
+MaxStepInterval$interval
+
+````
+
+5 minute interval with the maxinum number of steps = 835
+
+
+
+Imputing missing values
+
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+````{r, echo = TRUE}
+
+## Identify the total number of missing values in the steps variable
+TotalMissingValues <- count(filter(ActivityMonitorData, is.na(steps)))
+
+TotalMissingValues$n
+````
+
+Total missing values in step = 2304
+
+
+2. Devise a strategy for filling in all of the missing values in the dataset. 
+
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+4.a) Make a histogram of the total number of steps taken each day.
+
+````{R, echo = TRUE}
+## Create a columne StepCount with Steps data. If Steps data is NA Replace it with the mean for the interval accross the entire data set
+##      Group the data by date and create a column the with the total of steps of the date
+SummActMonDataTidy <- ActivityMonitorData %>%
+                                group_by(interval) %>%
+                                mutate(StepCount = round(ifelse(is.na(steps), mean(steps, na.rm = TRUE), steps), digits = 0)) %>%
+                                select(date, interval, steps, StepCount) %>%
+                                group_by(date) %>%
+                                summarise(TotalSteps = sum(StepCount, na.rm = TRUE))
+
+## Plot a histogram with the frequency (Number of days) to the Total steps taken
+hist(SummActMonDataTidy$TotalSteps, breaks=seq(from=0, to=25000, by=2500), xlab = "Total Number Of Steps", main = "Frequency of Total Steps Taken\n(NA Replace with mean)", col = "red")
+````
+
+
+
+4.b)  Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+````{R, mean = TRUE}
+## Mean of the Total Steps removing NA
+mean(SummActMonDataTidy$TotalSteps, na.rm = TRUE)
+## Median of the Total Steps removing NA
+median(SummActMonDataTidy$TotalSteps, na.rm = TRUE)
+
+````
+
+Mean of Total Number of Steps per day = 10765.64
+
+Median of Total Number of Steps per day = 10762
+
+There is a dfference (increase) in the Mean and Median calculations compared witht the the once calculated previously as the NA's were replaced with real values that are the mean for the same 5 minute interval accross all days.
+
+
+
+Are there differences in activity patterns between weekdays and weekends?
+
+1. Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day
+
+````{r, echo = TRUE}
+
+## Create a Tidy data set creating a new column "StepCount" replacing the NA's in the "Steps" variable
+##      with Mean steps for the same interval (across the entire data set)
+SummActMonDataTidy <- ActivityMonitorData %>%
+                                group_by(interval) %>%
+                                mutate(StepCount = round(ifelse(is.na(steps), mean(steps, na.rm = TRUE), steps), digits = 0)) %>%
+                                select(date, interval, steps, StepCount)
+
+## Create a factor column "DayOfWeek" identifying if the day of week is a week day or week end
+##      summarise the data (Mean step count) for every 5 minute interval for weekd days and week end dys
+SummActMonDataTidy <- SummActMonDataTidy %>%
+                                mutate(DayOfWeek = as.factor(ifelse((weekdays(as.Date(date)) == "Saturday" | weekdays(as.Date(date)) == "Sunday"), "Weekend", "Weekday"))) %>%
+                                group_by(DayOfWeek, interval) %>%
+                                summarise(AverageSteps = mean(StepCount)) %>%
+                                select(DayOfWeek, interval, AverageSteps)
+````
+
+
+
+2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+````{R, echo = TRUE}
+## Plot the Average Steps for each 5 minute interval Weekday Vs Weekend
+ggplot(SummActMonDataTidy, aes(interval, AverageSteps)) + 
+        geom_line() + 
+        facet_grid(DayOfWeek ~ .) + 
+        ggtitle("Average Number Of Steps (Weekday Vs Weekend)") +
+        theme(plot.title = element_text(lineheight=3, face="bold", color="black", size=15)) +
+        xlab("Average Steps") + 
+        ylab("Interval")
+
+````
